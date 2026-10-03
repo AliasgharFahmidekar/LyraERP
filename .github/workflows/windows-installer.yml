@@ -70,6 +70,9 @@ jobs:
           New-Item -ItemType Directory -Force $app,$php,$tools | Out-Null
           robocopy $PWD $app /E /XD .git .github node_modules tests build /XF .env /NFL /NDL /NJH /NJS /NP
           if ($LASTEXITCODE -gt 7) { exit $LASTEXITCODE }
+          Remove-Item (Join-Path $app 'database/database.sqlite') -Force -ErrorAction SilentlyContinue
+          Remove-Item (Join-Path $app 'storage/logs') -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item (Join-Path $app 'public/storage') -Force -ErrorAction SilentlyContinue
           $phpExe = (Get-Command php).Source
           robocopy (Split-Path $phpExe -Parent) $php /E /NFL /NDL /NJH /NJS /NP
           if ($LASTEXITCODE -gt 7) { exit $LASTEXITCODE }
