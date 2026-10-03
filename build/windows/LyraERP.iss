@@ -24,6 +24,7 @@ Source: "app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createall
 Source: "php\*"; DestDir: "{app}\php"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "tools\nssm.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
 Source: "install.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LyraERP.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\LyraERP"; Filename: "{app}\LyraERP.cmd"
