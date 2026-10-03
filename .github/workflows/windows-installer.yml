@@ -41,7 +41,8 @@ jobs:
           php artisan key:generate --force
           New-Item -ItemType File -Force database/database.sqlite | Out-Null
           php artisan erp:install --admin-name="CI Administrator" --admin-email="ci@lyraerp.local" --admin-password="CiPassword123!"
-          php artisan optimize
+          php artisan config:cache
+          php artisan route:cache
           php artisan storage:link
       - name: Smoke test Laravel on SQLite
         shell: pwsh
