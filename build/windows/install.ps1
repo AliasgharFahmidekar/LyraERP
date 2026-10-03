@@ -16,7 +16,7 @@ $adminPassword = Get-IniValue 'AdminPassword'
 if ([string]::IsNullOrWhiteSpace($adminPassword)) { throw 'Admin password is required.' }
 $envText = @(
 'APP_NAME=LyraERP',
-'APP_ENV=production',
+'APP_ENV=local',
 'APP_KEY=',
 'APP_DEBUG=false',
 'APP_TIMEZONE=UTC',
@@ -55,8 +55,10 @@ if (-not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Failed to generate application key.' }
 & $php artisan erp:install "--admin-name=$adminName" "--admin-email=$adminEmail" "--admin-password=$adminPassword"
 if ($LASTEXITCODE -ne 0) { throw 'LyraERP initial installation failed.' }
-& $php artisan optimize
-if ($LASTEXITCODE -ne 0) { throw 'Laravel optimization failed.' }
+& $php artisan config:cache
+if ($LASTEXITCODE -ne 0) { throw 'Laravel configuration cache failed.' }
+& $php artisan route:cache
+if ($LASTEXITCODE -ne 0) { throw 'Laravel route cache failed.' }
 & $php artisan storage:link
 $nssm = Join-Path $appRoot 'tools\nssm.exe'
 if (-not (Test-Path $nssm)) { throw ('NSSM not found: ' + $nssm) }
