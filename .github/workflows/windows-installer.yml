@@ -40,7 +40,7 @@ jobs:
           (Get-Content .env) -replace '^APP_NAME=.*$', 'APP_NAME=LyraERP' -replace '^APP_ENV=.*$', 'APP_ENV=production' -replace '^APP_DEBUG=.*$', 'APP_DEBUG=false' -replace '^APP_URL=.*$', 'APP_URL=http://127.0.0.1:8090' -replace '^DB_CONNECTION=.*$', 'DB_CONNECTION=sqlite' | Set-Content .env
           php artisan key:generate --force
           New-Item -ItemType File -Force database/database.sqlite | Out-Null
-          php artisan migrate --force
+          php artisan erp:install --admin-name="CI Administrator" --admin-email="ci@lyraerp.local" --admin-password="CiPassword123!"
           php artisan optimize
           php artisan storage:link
       - name: Smoke test Laravel on SQLite
@@ -78,6 +78,7 @@ jobs:
           Copy-Item (Join-Path $env:TEMP 'nssm/nssm-2.24/win64/nssm.exe') (Join-Path $tools 'nssm.exe') -Force
           Copy-Item 'build/windows/install.ps1' $root -Force
           Copy-Item 'build/windows/LyraERP.iss' $root -Force
+          Copy-Item 'build/windows/LyraERP.cmd' $root -Force
       - name: Install Inno Setup
         shell: pwsh
         run: |
