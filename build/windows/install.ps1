@@ -53,8 +53,6 @@ $dbFile = Join-Path $dataDir 'lyraerp.sqlite'
 if (-not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null }
 & $php artisan key:generate --force
 if ($LASTEXITCODE -ne 0) { throw 'Failed to generate application key.' }
-& $php artisan migrate --force
-if ($LASTEXITCODE -ne 0) { throw 'Database migration failed.' }
 & $php artisan erp:install "--admin-name=$adminName" "--admin-email=$adminEmail" "--admin-password=$adminPassword"
 if ($LASTEXITCODE -ne 0) { throw 'LyraERP initial installation failed.' }
 & $php artisan optimize
