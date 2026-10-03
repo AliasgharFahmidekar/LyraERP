@@ -1,0 +1,96 @@
+name: Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/windows-installer-mvp
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, curl, fileinfo, intl, openssl, pdo, pdo_sqlite, sqlite3, xml, zip, gd
+          coverage: none
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+      - name: Prepare SQLite production environment
+        shell: pwsh
+        run: |
+          Copy-Item .env.example .env
+          (Get-Content .env) -replace '^APP_NAME=.*$', 'APP_NAME=LyraERP' -replace '^APP_ENV=.*$', 'APP_ENV=production' -replace '^APP_DEBUG=.*$', 'APP_DEBUG=false' -replace '^APP_URL=.*$', 'APP_URL=http://127.0.0.1:8090' -replace '^DB_CONNECTION=.*$', 'DB_CONNECTION=sqlite' | Set-Content .env
+          php artisan key:generate --force
+          New-Item -ItemType File -Force database/database.sqlite | Out-Null
+          php artisan migrate --force
+          php artisan optimize
+          php artisan storage:link
+      - name: Smoke test Laravel on SQLite
+        shell: pwsh
+        run: |
+          $p = Start-Process php -ArgumentList 'artisan','serve','--host=127.0.0.1','--port=8090' -WorkingDirectory $PWD -PassThru
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                $r = Invoke-WebRequest 'http://127.0.0.1:8090/up' -UseBasicParsing -TimeoutSec 3
+                if ($r.StatusCode -eq 200) { $ok = $true; break }
+              } catch {}
+            }
+            if (-not $ok) { throw 'LyraERP health endpoint did not become ready.' }
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }
+      - name: Prepare portable application
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD 'build/windows/payload'
+          $app = Join-Path $root 'app'
+          $php = Join-Path $root 'php'
+          $tools = Join-Path $root 'tools'
+          New-Item -ItemType Directory -Force $app,$php,$tools | Out-Null
+          robocopy $PWD $app /E /XD .git .github node_modules tests build /XF .env /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -gt 7) { exit $LASTEXITCODE }
+          $phpExe = (Get-Command php).Source
+          robocopy (Split-Path $phpExe -Parent) $php /E /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -gt 7) { exit $LASTEXITCODE }
+          Invoke-WebRequest 'https://nssm.cc/release/nssm-2.24.zip' -OutFile (Join-Path $env:TEMP 'nssm.zip')
+          Expand-Archive (Join-Path $env:TEMP 'nssm.zip') -DestinationPath (Join-Path $env:TEMP 'nssm') -Force
+          Copy-Item (Join-Path $env:TEMP 'nssm/nssm-2.24/win64/nssm.exe') (Join-Path $tools 'nssm.exe') -Force
+          Copy-Item 'build/windows/install.ps1' $root -Force
+          Copy-Item 'build/windows/LyraERP.iss' $root -Force
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --version=6.7.1 -y --no-progress
+          if (-not (Test-Path 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe')) { throw 'Inno Setup compiler not found.' }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'build/windows/payload/LyraERP.iss'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LyraERP-Windows-Installer
+          path: build/windows/output/LyraERP-Setup.exe
+          if-no-files-found: error
